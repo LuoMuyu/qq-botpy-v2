@@ -10,8 +10,7 @@ readme = "README.md"
 requires-python = ">=3.8"
 license = { text = "MIT" }
 authors = [
-    # 发布前可按需补充邮箱: { name = "Luomuyu", email = "xxx@example.com" }
-    { name = "Luomuyu" },
+    { name = "Luomuyu", email = "2592839825@qq.com" },
 ]
 keywords = ["qq", "bot", "qqbot", "botpy", "qq-guild", "websocket", "webhook"]
 classifiers = [
@@ -27,6 +26,8 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+
 ]
 dependencies = [
     "aiohttp>=3.7.4,<4",
@@ -44,7 +45,6 @@ webhook = ["PyNaCl>=1.4.0"]
 test = ["pytest", "pytest-asyncio", "PyNaCl>=1.4.0"]
 
 [tool.setuptools.packages.find]
-# 只打包 botpy 包，排除 reference/（上游克隆）、tests、examples 等
 include = ["botpy*"]
 
 [tool.pytest.ini_options]
