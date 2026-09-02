@@ -66,8 +66,28 @@ class ConnectionSession:
         self.loop: asyncio.AbstractEventLoop = _get_event_loop() if loop is None else loop
         # session链接同时最大并发数
         self._session_list: List[session.Session] = []
+        # 存活中的会话任务（用于优雅关闭时取消并等待）
+        self._tasks: set = set()
+        self._closed = False
+
+    @property
+    def closed(self) -> bool:
+        return self._closed
+
+    async def close(self):
+        """取消全部存活中的会话任务（ws 连接与心跳随之停止）并等待其退出。"""
+        self._closed = True
+        self._session_list.clear()
+        tasks = [t for t in self._tasks if not t.done()]
+        for t in tasks:
+            t.cancel()
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
+        self._tasks.clear()
 
     async def multi_run(self, session_interval=5):
+        if self._closed:
+            return
         if len(self._session_list) == 0:
             return
         # 根据并发数同时建立多个future
@@ -76,15 +96,21 @@ class ConnectionSession:
         # 需要执行的链接列表，通过time_interval控制启动时间
         tasks = []
 
-        while len(session_list) > 0:
+        while len(session_list) > 0 and not self._closed:
             _log.debug("[botpy] 会话列表循环运行")
             time_interval = session_interval * (index + 1)
             _log.info("[botpy] 最大并发连接数: %s, 启动会话数: %s" % (self._max_async, len(session_list)))
             for i in range(self._max_async):
-                if len(session_list) == 0:
+                if len(session_list) == 0 or self._closed:
                     break
-                tasks.append(asyncio.ensure_future(self._runner(session_list.pop(i), time_interval), loop=self.loop))
+                task = asyncio.ensure_future(self._runner(session_list.pop(i), time_interval), loop=self.loop)
+                self._tasks.add(task)
+                task.add_done_callback(self._tasks.discard)
+                tasks.append(task)
             index += self._max_async
+
+        if not tasks:
+            return
 
         done, _ = await asyncio.wait(tasks)
         # 主动取回任务异常，避免连接错误被静默吞掉

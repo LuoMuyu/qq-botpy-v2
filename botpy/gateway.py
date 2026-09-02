@@ -68,6 +68,10 @@ class BotWebSocket:
         self._requeued = True
 
     async def on_error(self, exception: BaseException):
+        if isinstance(exception, asyncio.CancelledError):
+            # 优雅关闭时的任务取消不是错误：debug 记录、不回队、不打回溯
+            _log.debug("[botpy] 会话任务被取消（正常关闭），跳过重连")
+            return
         _log.error("[botpy] websocket连接: %s, 异常信息 : %s" % (self._conn, exception))
         traceback.print_exc()
         self._connection.add(self._session)
@@ -151,8 +155,8 @@ class BotWebSocket:
         """
         websocket向服务器端发起链接，并定时发送心跳
 
-        无论以何种方式退出（正常关闭/异常/取消），都保证会话被放回重连队列，
-        由 ConnectionSession 的调度循环发起重连。
+        无论以何种方式退出（正常关闭/异常/取消），都保证会话被放回重连队列；
+        客户端主动关闭（ConnectionSession._closed）时静默退出、不回队。
         """
         _log.info("[botpy] 启动中...")
         ws_url = self._session["url"]
@@ -186,12 +190,24 @@ class BotWebSocket:
                         if ws_conn.closed:
                             _log.info("[botpy] ws关闭, 停止接收消息!")
                             break
+        except asyncio.CancelledError:
+            # 优雅关闭：向上传播取消，由 finally 做静默清理
+            raise
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except Exception as e:
+            # 连接建立阶段失败等（如网络不可达），视同断线进入重连
+            await self.on_error(e)
         finally:
-            # 兜底：任何退出路径都必须把会话放回重连队列，否则客户端会静默停止
+            self._stop_heartbeat()
+            # 兜底：正常运行的任何退出路径都必须把会话放回重连队列；
+            # 客户端主动关闭时静默退出，不回队、不告警
             if not self._requeued:
-                _log.warning("[botpy] 会话未正常回队，强制放回重连队列")
-                self._stop_heartbeat()
-                self._connection.add(self._session)
+                if getattr(self._connection, "_closed", False):
+                    _log.debug("[botpy] 客户端已关闭，会话不再回队重连")
+                else:
+                    _log.warning("[botpy] 会话未正常回队，强制放回重连队列")
+                    self._connection.add(self._session)
                 self._mark_requeued()
 
     async def ws_identify(self):

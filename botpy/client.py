@@ -124,12 +124,16 @@ class Client:
         return self._connection.state.robot
 
     async def close(self) -> None:
-        """关闭client相关的连接"""
+        """关闭client相关的连接（优雅关闭：取消并等待所有 ws 会话任务退出）"""
 
         if self._closed:
             return
 
         self._closed = True
+
+        # 取消并等待所有存活中的 ws 会话任务（心跳随连接停止）
+        if self._connection is not None:
+            await self._connection.close()
 
         await self.http.close()
 
@@ -272,6 +276,11 @@ class Client:
                 # cancel all tasks lingering
                 break
             except asyncio.CancelledError:
+                # start() 任务被取消（如收到 stop 信号优雅关闭）：
+                # 先取消并等待所有 ws 会话子任务退出，再向上传播取消
+                self._closed = True
+                if self._connection is not None:
+                    await self._connection.close()
                 raise
             except Exception as e:
                 # 重连循环中的任何异常都不应使客户端静默停止
@@ -294,8 +303,11 @@ class Client:
             await client.ws_connect()
         except (KeyboardInterrupt, SystemExit):
             raise
+        except asyncio.CancelledError:
+            # 优雅关闭时的任务取消不是错误：不记日志、不回队，向上传播取消
+            raise
         except BaseException as e:
-            # 包含 asyncio.CancelledError 等	BaseException 子类，确保会话回队触发重连
+            # 真实网络故障：记日志并放回重连队列
             await client.on_error(e)
 
     def ws_dispatch(self, event: str, *args: Any, **kwargs: Any) -> None:
