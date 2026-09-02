@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "qq-botpy"
+version = "1.0.0"
+description = "QQ 机器人 Python SDK，基于官方 API v2 最新文档适配，接口兼容原版 botpy"
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "MIT" }
+dependencies = [
+    "aiohttp>=3.7.4,<4",
+    "PyYAML",
+    "APScheduler",
+]
+
+[project.optional-dependencies]
+webhook = ["PyNaCl>=1.4.0"]
+test = ["pytest", "pytest-asyncio", "PyNaCl>=1.4.0"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

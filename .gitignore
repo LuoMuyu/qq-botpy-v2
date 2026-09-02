@@ -1,0 +1,35 @@
+# 虚拟环境
+venv/
+.venv/
+env/
+
+# Python 构建产物
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# 字节码与缓存
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# 上游参考源码（tencent-connect/botpy 的克隆，仅本地对照用）
+reference/
+
+# 日志
+*.log
+logs/
+
+# IDE 与系统文件
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# 本地敏感配置（appid/secret 等，切勿提交）
+config.yaml
+.env

@@ -1,0 +1,7 @@
+# 复制为 config.yaml 并填入自己的机器人信息后使用
+# 机器人 appid
+appid: "102623701"
+# 机器人密钥
+secret: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+# 是否沙箱环境
+is_sandbox: false

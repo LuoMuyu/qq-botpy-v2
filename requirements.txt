@@ -1,0 +1,5 @@
+aiohttp>=3.7.4,<4
+PyYAML
+APScheduler
+# Webhook 模式（可选）：Ed25519 签名校验
+PyNaCl>=1.4.0
