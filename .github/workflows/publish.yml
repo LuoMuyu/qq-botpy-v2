@@ -87,6 +87,26 @@ jobs:
         #   user: __token__
         #   password: ${{ secrets.PYPI_API_TOKEN }}
 
+  release-to-github:
+    name: Create GitHub Release with artifacts
+    needs: build
+    if: github.event_name == 'push' # tag 推送时创建 GitHub Release 并附构建产物
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # 创建 Release 与上传附件必需
+    steps:
+      - name: Download distribution packages
+        uses: actions/download-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/* # 上传 wheel 与 sdist 到 Release 附件
+          generate_release_notes: true # 自动根据提交生成 Release Notes
+
   publish-to-testpypi:
     name: Publish to TestPyPI
     needs: build

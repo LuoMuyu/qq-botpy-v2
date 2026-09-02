@@ -46,8 +46,13 @@ git tag v1.0.1
 git push origin master v1.0.1
 ```
 
-推送 tag 后自动执行：构建 sdist + wheel → twine check → 上传到 PyPI。
+推送 tag 后自动执行：构建 sdist + wheel → twine check → 上传到 PyPI → **创建 GitHub Release 并将构建产物（wheel/sdist）挂为 Release 附件**。
 在仓库 Actions 页面可查看进度；若配置了 Required reviewers，需人工批准后才会真正上传。
+
+发布完成后产物出现在两处：
+
+- PyPI 项目页：https://pypi.org/project/qq-botpy-v2/
+- GitHub Release：https://github.com/LuoMuyu/qq-botpy-v2/releases （附件为 `*.whl` 与 `*.tar.gz`，Release Notes 自动生成）
 
 ### 手动触发 / TestPyPI 验证
 
@@ -91,3 +96,16 @@ twine upload dist/*
 - [ ] 本地构建验证：`python -m build && twine check dist/*`
 - [ ] （可选）先发 TestPyPI 验证
 - [ ] 发布后在新环境验证：`pip install qq-botpy-v2 && python -c "import botpy; print(botpy.__version__)"`
+
+## 重新发布同一版本（移动 tag）
+
+若 tag 已推送但需要补充能力（如为 Release 附加产物）后重新发布，可将 tag 移到新提交并强制推送
+（仅适用于刚发布、尚无用户依赖该 tag 的情况）：
+
+```bash
+git tag -f v1.0.0
+git push --force origin v1.0.0
+```
+
+这会触发 Actions 重新执行该版本的构建、PyPI 发布与 GitHub Release 创建
+（注意：PyPI 不允许覆盖已上传的同版本文件，PyPI 侧会报错，Release 侧正常）。
