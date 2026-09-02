@@ -1,8 +1,10 @@
-# qq-botpy 使用文档
+# qq-botpy-v2 使用文档
 
-基于 QQ 机器人开放平台 API v2 最新文档（https://bot.q.qq.com/wiki/develop/api-v2/ ）适配的 Python SDK 使用指南。接口名与官方原版 [tencent-connect/botpy](https://github.com/tencent-connect/botpy) 完全兼容。
+基于 QQ 机器人开放平台 API v2 最新文档（https://bot.q.qq.com/wiki/develop/api-v2/ ，更新至 2026.08）适配的 Python SDK 使用指南。接口名与官方原版 [tencent-connect/botpy](https://github.com/tencent-connect/botpy) 完全兼容。
 
-> 本文档对应 SDK 版本 1.0.x，官方文档更新至 2026.08。
+- **PyPI 发行名**：`qq-botpy-v2`；**代码导入名**：`botpy`（与原版一致）
+- SDK 版本：1.0.x
+- 发布流程见 [docs/publish.md](publish.md)
 
 ## 目录
 
@@ -25,7 +27,7 @@
 
 ## 一、简介与特性
 
-`qq-botpy`（导入包名为 `botpy`）是用于开发 QQ 机器人的异步 Python SDK，支持：
+`botpy`（发行名 `qq-botpy-v2`）是用于开发 QQ 机器人的异步 Python SDK，支持：
 
 - **频道（Guild）**：子频道消息、私信、身份组、公告、日程、精华消息、表情表态、论坛、音频等
 - **群聊（Group）**：@机器人消息、全量消息模式、富媒体、引用回复、撤回、禁言管理、入群审批
@@ -38,9 +40,10 @@
 | --- | --- |
 | 接口域名 | 统一为 `api.bot.qq.com`（原 `api.sgroup.qq.com`） |
 | 鉴权 | Access Token（`QQBot {access_token}`），SDK 自动获取与刷新 |
-| 新增接口 | 消息撤回（群/单聊）、流式消息、群管理、自定义菜单、指令面板、分片上传等 27 个 |
-| 新增事件 | 群消息全量模式、用户申请加群、群成员加入/退出 |
-| 事件体增强 | `message_type`、`message_scene`（`msg_idx` 引用索引）、语音转写、引用消息元素等 |
+| 新增接口 | 消息撤回（群/单聊）、流式消息、群管理、自定义菜单、指令面板、分片上传等 27 个（总计 91 个） |
+| 新增事件 | 群消息全量模式、用户申请加群、群成员加入/退出（新 intents 位 `1<<24`） |
+| 事件体增强 | `message_type`、`message_scene`（含 `msg_idx` 引用索引）、语音转写、引用消息元素、`FRIEND_ADD` 新字段、互动事件 type 11~20 等 |
+| 事件模型对齐 | 全部事件对象逐字段对齐最新文档，并提供 `raw` 原始载荷访问 |
 | 新增接入模式 | Webhook（HTTP 回调 + Ed25519 验签） |
 | 心跳 | 按 Hello 下发的 `heartbeat_interval` 动态设置 |
 
@@ -49,11 +52,14 @@
 要求 Python 3.8+。
 
 ```bash
+# 从 PyPI 安装
+pip install qq-botpy-v2
+
 # 从源码安装
 pip install .
 
 # 需要 Webhook 模式时（Ed25519 签名，依赖 PyNaCl）
-pip install ".[webhook]"
+pip install "qq-botpy-v2[webhook]"
 ```
 
 核心依赖：`aiohttp`（异步 HTTP/WebSocket）、`PyYAML`（配置读取）、`APScheduler`（定时任务扩展）。
@@ -123,10 +129,6 @@ client.run(appid="你的appid", secret="你的AppSecret")
 ### 4.4 异步上下文中使用
 
 ```python
-import botpy
-
-intents = botpy.Intents(public_messages=True)
-
 async def main():
     async with MyClient(intents=intents) as client:
         await client.start(appid="你的appid", secret="你的AppSecret")
@@ -166,7 +168,7 @@ intents = botpy.Intents.none()     # 不订阅
 
 ## 六、事件回调与消息对象
 
-在 `Client` 子类中定义 `on_事件名` 的 `async` 方法即可接收对应事件。事件名对照：
+在 `Client` 子类中定义 `on_事件名` 的 `async` 方法即可接收对应事件。WebSocket 与 Webhook 两种接入方式共用同一套回调，事件名对照如下。
 
 ### 6.1 群聊 / 单聊（`public_messages`，1<<25）
 
@@ -209,20 +211,20 @@ intents = botpy.Intents.none()     # 不订阅
 
 ### 6.4 群/单聊消息对象
 
-`GroupMessage` 与 `C2CMessage` 的常用属性（按最新文档新增了多项字段）：
+`GroupMessage` 与 `C2CMessage` 的属性与最新文档事件体逐字段对齐：
 
 | 属性 | 类型 | 说明 |
 | --- | --- | --- |
 | `id` | str | 消息 ID，用于被动回复（`msg_id`）与撤回 |
 | `content` | str | 文本内容（群聊已去除 @机器人前缀） |
-| `author` | `_User` | 发送者。群聊含 `member_openid`、`member_role`；单聊含 `user_openid` |
+| `author` | `_User` | 发送者，包含文档 User 结构全部 8 个字段：`id`、`username`、`bot`、`union_openid`、`union_user_account`、`user_openid`（单聊场景）、`member_openid`（群聊场景）、`member_role`（`member`/`admin`/`owner`） |
 | `group_openid` | str | 群 OpenID（仅 GroupMessage） |
 | `timestamp` | str | 发送时间（RFC3339） |
-| `message_type` | int | 🆕 0=普通文本、3=结构化卡片、101=并行消息、102=聊天记录、103=引用消息 |
-| `message_scene` | 🆕 | 消息场景上下文，含 `msg_idx`（引用回复用）、`ref_msg_idx`、`auth_token` |
-| `attachments` | list | 🆕 附件，语音类含 `voice_wav_url`（WAV 转码）与 `asr_refer_text`（语音转写结果） |
-| `ark_data` | dict | 🆕 卡片消息数据（`ark_type`：miniapp/map/music_together 等） |
-| `msg_elements` | list | 🆕 消息元素列表（引用消息 103 时含被引用内容） |
+| `message_type` | int | 0=普通文本、3=结构化卡片、101=并行消息、102=聊天记录、103=引用消息 |
+| `message_scene` | — | 消息场景上下文，含 `msg_idx`（引用回复用）、`ref_msg_idx`、`auth_token` |
+| `attachments` | list | 附件，语音类含 `voice_wav_url`（WAV 转码）与 `asr_refer_text`（语音转写结果） |
+| `ark_data` | dict | 卡片消息数据（`ark_type`：miniapp/map/music_together 等） |
+| `msg_elements` | list | 消息元素列表（引用消息 103 时含被引用内容） |
 | `mentions` | list | 被 @ 的用户列表 |
 
 便捷方法：
@@ -272,11 +274,13 @@ async def on_group_at_message_create(self, message: GroupMessage):
 - `C2CManageEvent`（`on_friend_add`）：`scene`（加好友场景值）、`scene_param`（callback_data）、
   `author.union_openid`、`short_code`（机器人分享短链）
 - `Interaction.data.resolved`：`feedback_opt`、`checked`、`action`、`message_scene`、`authorize_data`
-  （对应最新互动类型 13 消息反馈 / 15 进出故事集 / 16 切换模型 / 18 用户授权 / 19 群授权 / 20 群授权状态变更）
+  （对应互动类型 13 消息反馈 / 15 进出故事集 / 16 切换模型 / 18 用户授权 / 19 群授权 / 20 群授权状态变更；
+  `type` 枚举：11=消息按钮、12=单聊快捷菜单、14=清空会话）
 
 ## 七、API 调用参考
 
-所有接口通过 `client.api`（`BotAPI` 实例）调用。以下按场景列出；标注 🆕 的为对齐最新文档新增的接口，其余接口与原版 botpy 兼容（内部已按最新域名/鉴权适配）。
+所有接口通过 `client.api`（`BotAPI` 实例）调用，共 91 个方法（64 个与原版兼容 + 27 个对齐最新文档新增）。
+标注 🆕 的为新增接口，其余接口与原版 botpy 兼容（内部已按最新域名/鉴权适配）。
 
 ### 7.1 Websocket 接入点
 
@@ -415,7 +419,17 @@ rsp = await client.api.create_panel(
 panel_id = rsp["panel_id"]
 ```
 
-### 7.6 频道相关接口（与原版兼容）
+### 7.6 富媒体分片上传（🆕）
+
+| 方法 | 说明 |
+| --- | --- |
+| `post_group_upload_prepare(group_openid, file_type, file_size, file_name, md5, sha1, md5_10m)` | 群聊预上传，返回 `upload_id`、`block_size`、分片预签名 URL |
+| `post_group_upload_part_finish(group_openid, upload_id, part_index, block_size, md5)` | 通知服务端分片完成 |
+| `post_c2c_upload_prepare(...)` / `post_c2c_upload_part_finish(...)` | 单聊对应接口（与群聊不互通） |
+
+完整流程见[第八节](#八富媒体上传)。
+
+### 7.7 频道相关接口（与原版兼容）
 
 频道（Guild）、子频道（Channel）、身份组、成员、频道消息、频道私信、禁言、公告、日程、精华消息、表情表态、帖子、音频、接口权限等接口全部保留，方法名与参数与原版 botpy 一致：
 
@@ -560,7 +574,7 @@ await client.api.post_c2c_message(
 ### 10.1 使用方式
 
 ```bash
-pip install "qq-botpy[webhook]"   # 依赖 PyNaCl
+pip install "qq-botpy-v2[webhook]"   # 依赖 PyNaCl
 ```
 
 ```python
@@ -609,9 +623,10 @@ await server.start(host="0.0.0.0", port=8080)   # 在 asyncio 环境中
 2. **沙箱环境**：`Client(is_sandbox=True)` 对应 `sandbox.api.bot.qq.com`。
 3. **`msg_seq` 参数补充**：`post_message` / `post_dms` 新增可选 `msg_seq` 参数（原调用不受影响）。
 4. **群/单聊消息返回值**：`post_group_message` / `post_c2c_message` 现按最新文档返回 `{"id", "timestamp", "ext_info"}`。
-5. **消息对象新增字段**：`GroupMessage` / `C2CMessage` 新增 `message_type`、`message_scene`、`ark_data`、`msg_elements` 等属性；原有属性（`id`、`content`、`author`、`reply()` 等）不变。
+5. **消息对象字段更全**：`GroupMessage` / `C2CMessage` 包含 `message_type`、`message_scene`、`ark_data`、`msg_elements` 等最新字段，`author` 含文档 User 结构全部字段；原有属性（`id`、`content`、`author`、`reply()` 等）不变。
 6. **心跳间隔**：由固定 30 秒改为按平台 Hello 下发的 `heartbeat_interval` 动态设置，无需改动。
-7. **Python 版本**：修复了 Python 3.12+ 中 `asyncio.get_event_loop()` 无运行循环时的报错问题。
+7. **Python 版本**：修复了 Python 3.12+ 中 `asyncio.get_event_loop()` 无运行循环时的报错问题，以及 APScheduler 扩展在导入期启动失败的问题。
+8. **发行包名**：PyPI 包名为 `qq-botpy-v2`，代码导入名仍为 `botpy`。
 
 ## 十二、沙箱环境、日志与错误处理
 
@@ -642,7 +657,7 @@ logger = get_logger()
 
 ```python
 from botpy.errors import (
-    ApiError,                    # 🆕 携带平台业务错误码，如 err.code == 40034005
+    ApiError,                    # 携带平台业务错误码，如 err.code == 40034005
     AuthenticationFailedError,   # 401
     ForbiddenError,              # 403
     NotFoundError,               # 404
@@ -721,3 +736,6 @@ async def daily_task():
 
 **Q8: 如何获取用户/群的真实 QQ 号？**
 平台基于 OpenID 体系，事件与接口中均为 `openid` 形式（`group_openid`、`member_openid`、`user_openid`），不提供真实 QQ 号。
+
+**Q9: 事件对象上找不到某个字段？**
+先确认 SDK 版本是否最新；仍没有时可直接读 `message.raw`（原始事件体）获取，并向本项目反馈补充。

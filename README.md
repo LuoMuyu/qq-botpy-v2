@@ -1,25 +1,37 @@
 # qq-botpy-v2
 
-基于 QQ 机器人开放平台 **API v2 最新文档**（https://bot.q.qq.com/wiki/develop/api-v2/ ）适配的 Python SDK。
+QQ 机器人 Python SDK，基于 QQ 开放平台 **API v2 最新文档**（https://bot.q.qq.com/wiki/develop/api-v2/ ，更新至 2026.08）适配。
 项目基于官方 [tencent-connect/botpy](https://github.com/tencent-connect/botpy) 开发（该库已两年未更新），**接口名与原版完全兼容**，已有代码可直接迁移。
 
-> PyPI 包名为 `qq-botpy-v2`，代码导入名保持 `botpy`（与原版一致）。
-> 📖 完整使用文档：[docs/usage.md](docs/usage.md) ｜ 🚀 发布指南：[docs/publish.md](docs/publish.md)
+- **PyPI 发行名**：`qq-botpy-v2`（`pip install qq-botpy-v2`）
+- **代码导入名**：`botpy`（与原版一致，`import botpy`）
+- 📖 使用文档：[docs/usage.md](docs/usage.md)
+- 🚀 发布指南：[docs/publish.md](docs/publish.md)
 
 ## 特性
 
-- ✅ **兼容原版 botpy**：`botpy.Client`、`botpy.Intents`、`client.api.*` 全部 64 个接口方法签名不变，事件回调（`on_at_message_create`、`on_group_at_message_create` 等）不变
-- ✅ **对齐最新文档**（更新至 2026.08）：
-  - 接口统一域名 `api.bot.qq.com`，鉴权使用 Access Token（`QQBot {token}`）
-  - 群聊/单聊消息收发、**撤回**（2 分钟内）、**引用回复**、互动召回（`is_wakeup`）
+### 接口兼容
+
+- 原版全部 **64 个 `BotAPI` 方法**签名不变，`botpy.Client`、`botpy.Intents`、事件回调（`on_at_message_create`、`on_group_at_message_create` 等）写法不变
+- `botpy.types` 类型定义、`botpy.ext` 扩展（指令装饰器、定时任务等）保持可用
+- 兼容 Python 3.8 ~ 3.14（修复了 3.12+ 事件循环、APScheduler 导入期启动等问题）
+
+### 对齐最新文档（2026.08）
+
+- 接口统一域名 `api.bot.qq.com`，鉴权使用 Access Token（SDK 自动获取与刷新）
+- **新增 27 个接口**（总计 91 个）：
+  - 群/单聊消息**撤回**（2 分钟内）、**引用回复**、互动召回（`is_wakeup`）
   - 单聊**流式消息**（打字机效果）与"输入中"状态（`input_notify`）
   - 富媒体上传：URL 直传 + **分片上传**（`upload_prepare` / `upload_part_finish`）
-  - 群管理接口：群信息、机器人群内状态、**禁言管理**、**入群申请审批**、**入群自动审批策略**
-  - **自定义菜单**（`/v2/menu`）与**指令面板**（`/v2/panels`）管理接口
-  - 新增事件：群消息全量模式（`GROUP_MESSAGE_CREATE`）、用户申请加群（`GROUP_JOIN_REQUEST`）、群成员加入/退出（`GROUP_MEMBER_ADD/QUIT`，新 intents 位 `1<<24`）
-  - 事件体新增字段：`message_type`、`message_scene`（含 `msg_idx` 引用索引）、语音转写（`voice_wav_url`/`asr_refer_text`）、`msg_elements` 引用消息等
-- ✅ **新增 Webhook 接入模式**：HTTP 回调 + Ed25519 签名校验，适用于 Serverless 等无法维持长连接的场景
-- ✅ WebSocket 心跳间隔按平台 Hello 下发的 `heartbeat_interval` 动态设置；兼容 Python 3.8 ~ 3.14
+  - 群管理：群信息、机器人群内状态、**禁言管理**、**入群申请审批**、**入群自动审批策略**
+  - **自定义菜单**（`/v2/menu`）与**指令面板**（`/v2/panels`）
+- **新增事件**：群消息全量模式（`GROUP_MESSAGE_CREATE`）、用户申请加群（`GROUP_JOIN_REQUEST`）、群成员加入/退出（`GROUP_MEMBER_ADD/QUIT`，新 intents 位 `group_member_event = 1<<24`）
+- **事件模型逐字段对齐最新文档**：群/单聊消息的 `message_type`、`message_scene`（含 `msg_idx` 引用索引）、语音转写（`asr_refer_text`）、引用消息元素（`msg_elements`）；`FRIEND_ADD` 的 `scene`/`scene_param`/`short_code`；互动事件 type 11~20 及 `resolved` 扩展字段；频道事件的 `op_user_id` 等
+- 所有事件对象提供 **`raw` 属性**：平台未来新增字段可直接读取，不依赖 SDK 更新
+
+### 新增 Webhook 接入模式
+
+HTTP 回调 + Ed25519 签名校验（自动处理 op=13 回调验证 / op=12 ACK），适用于 Serverless 等无法维持长连接的场景。
 
 ## 安装
 
@@ -34,7 +46,7 @@ pip install .
 pip install "qq-botpy-v2[webhook]"
 ```
 
-依赖：`aiohttp`、`PyYAML`、`APScheduler`；Webhook 模式额外需要 `PyNaCl`。
+核心依赖：`aiohttp`、`PyYAML`、`APScheduler`；Webhook 模式额外需要 `PyNaCl`。
 
 ## 快速开始
 
@@ -78,27 +90,35 @@ client = MyClient(intents=botpy.Intents(public_messages=True))
 client.webhook_run(appid="你的appid", secret="你的AppSecret", port=8080)
 ```
 
+更多示例（富媒体、流式消息、入群审批、指令装饰器等）见 [examples/](examples/)。
+
 ## 从原版 botpy 迁移
 
-无需修改任何调用代码，直接替换安装源即可。原版 64 个 `BotAPI` 方法、全部事件回调、`types` 类型定义均保持兼容。详见使用文档中的 [从 botpy 迁移](docs/usage.md#十一从原版-botpy-迁移) 一节。
+无需修改任何调用代码，直接替换安装源即可。详见使用文档中的[迁移章节](docs/usage.md#十一从原版-botpy-迁移)。
 
 ## 目录结构
 
 ```
 qqbotpy/
-├── botpy/            # SDK 源码（包名与原版一致，import botpy 即可）
-│   ├── client.py     # Client（WebSocket / Webhook 模式）
-│   ├── api.py        # BotAPI（64 个兼容接口 + 27 个新增接口）
-│   ├── webhook.py    # Webhook HTTP 回调服务（新增）
-│   ├── gateway.py    # WebSocket 网关
-│   ├── flags.py      # Intents / Permission
-│   ├── message.py    # 事件消息模型
-│   ├── manage.py     # 群/C2C 管理事件模型（含入群申请）
-│   ├── types/        # TypedDict 类型定义
-│   └── ext/          # 扩展工具（指令装饰器等）
-├── examples/         # 使用示例
-├── tests/            # 单元测试（pytest，62 个用例，含伪造网关的集成测试）
-└── docs/usage.md     # 使用文档
+├── botpy/                     # SDK 源码（导入包名 botpy）
+│   ├── client.py              # Client（WebSocket / Webhook 模式）
+│   ├── api.py                 # BotAPI（91 个方法 = 64 兼容 + 27 新增）
+│   ├── webhook.py             # Webhook HTTP 回调服务
+│   ├── gateway.py             # WebSocket 网关（动态心跳间隔）
+│   ├── flags.py               # Intents / Permission
+│   ├── message.py             # 消息事件模型（群/单聊/频道/私信）
+│   ├── manage.py              # 群/C2C 管理事件模型（含入群申请）
+│   ├── types/                 # TypedDict 类型定义
+│   └── ext/                   # 扩展工具（指令装饰器、定时任务等）
+├── examples/                  # 7 个使用示例
+├── tests/                     # 77 个测试用例（含伪造网关集成测试）
+├── docs/
+│   ├── usage.md               # 使用文档
+│   └── publish.md             # PyPI 发布指南
+├── .github/workflows/
+│   └── publish.yml            # 打 tag 自动发布到 PyPI
+├── pyproject.toml             # 打包与元数据配置
+└── setup.py                   # 兼容壳（元数据统一在 pyproject）
 ```
 
 ## 运行测试
