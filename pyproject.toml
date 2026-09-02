@@ -37,7 +37,7 @@ dependencies = [
 
 # 发布前请改为自己的仓库地址（会展示在 PyPI 项目页侧边栏）
 [project.urls]
-Homepage = "https://github.com/tencent-connect/botpy"
+Homepage = "https://github.com/LuoMuyu/qq-botpy-v2"
 Documentation = "https://bot.q.qq.com/wiki/develop/api-v2/"
 
 [project.optional-dependencies]
