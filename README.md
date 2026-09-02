@@ -1,9 +1,10 @@
-# qq-botpy
+# qq-botpy-v2
 
 基于 QQ 机器人开放平台 **API v2 最新文档**（https://bot.q.qq.com/wiki/develop/api-v2/ ）适配的 Python SDK。
 项目基于官方 [tencent-connect/botpy](https://github.com/tencent-connect/botpy) 开发（该库已两年未更新），**接口名与原版完全兼容**，已有代码可直接迁移。
 
-> 📖 完整使用文档：[docs/usage.md](docs/usage.md)
+> PyPI 包名为 `qq-botpy-v2`，代码导入名保持 `botpy`（与原版一致）。
+> 📖 完整使用文档：[docs/usage.md](docs/usage.md) ｜ 🚀 发布指南：[docs/publish.md](docs/publish.md)
 
 ## 特性
 
@@ -23,11 +24,14 @@
 ## 安装
 
 ```bash
-# 从源码安装
+# 从 PyPI 安装（发布后可用）
+pip install qq-botpy-v2
+
+# 或从源码安装
 pip install .
 
 # 如需 Webhook 模式（Ed25519 签名校验）
-pip install ".[webhook]"
+pip install "qq-botpy-v2[webhook]"
 ```
 
 依赖：`aiohttp`、`PyYAML`、`APScheduler`；Webhook 模式额外需要 `PyNaCl`。
@@ -100,8 +104,16 @@ qqbotpy/
 ## 运行测试
 
 ```bash
-pip install pytest pytest-asyncio pynacl
+pip install -e ".[test]"
 python -m pytest tests/ -v
+```
+
+## 发布到 PyPI
+
+推送 `v*` tag 即自动构建并发布（GitHub Actions + Trusted Publishing，无需 token），详见 [docs/publish.md](docs/publish.md)：
+
+```bash
+git tag v1.0.0 && git push origin v1.0.0
 ```
 
 ## 相关链接

@@ -1,0 +1,110 @@
+# 发布到 PyPI 的自动化流程
+#
+# 触发方式：
+#   1. 推送 tag 自动发布正式版:  git tag v1.0.0 && git push origin v1.0.0
+#   2. 手动触发:                GitHub 仓库页面 → Actions → Publish to PyPI → Run workflow
+#                              可选择发布目标（pypi 正式 / testpypi 测试）
+#
+# 首次发布前的一次性配置（GitHub Trusted Publishing，无需任何 token）：
+#   1. PyPI 侧（https://pypi.org → 账号设置 → Publishing，添加 Pending Publisher）：
+#        - PyPI project name:  qq-botpy-v2
+#        - Owner / Repository: 你的 GitHub 用户名 / 本仓库名
+#        - Workflow name:      publish.yml
+#        - Environment:        pypi
+#      （TestPyPI 同理，在 https://test.pypi.org 添加一条，Environment 填 testpypi）
+#   2. GitHub 侧：仓库 → Settings → Environments → 分别创建 "pypi" 和 "testpypi" 环境
+#      （可选：在环境中配置 Required reviewers，上传前需人工审批）
+#
+# 若不使用 Trusted Publishing，改用 API Token：
+#   仓库 → Settings → Secrets and variables → Actions 添加 PYPI_API_TOKEN，
+#   并在下方 publish 步骤中改用注释里的 user/password 方式。
+
+name: Publish to PyPI
+
+on:
+  push:
+    tags:
+      - "v*" # 推送 v 开头的 tag 时自动发布正式版，如 v1.0.0
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 发布目标
+        type: choice
+        options:
+          - pypi
+          - testpypi
+        default: pypi
+
+permissions: {}
+
+jobs:
+  build:
+    name: Build distribution
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install build tool
+        run: python -m pip install --upgrade build twine
+
+      - name: Build sdist and wheel
+        run: python -m build
+
+      - name: Verify metadata
+        run: twine check dist/*
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
+
+  publish-to-pypi:
+    name: Publish to PyPI
+    needs: build
+    if: github.event_name == 'push' || inputs.target == 'pypi'
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/qq-botpy-v2
+    permissions:
+      id-token: write # Trusted Publishing（OIDC）必需
+    steps:
+      - name: Download distribution packages
+        uses: actions/download-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        # 若改用 API Token 鉴权，替换为:
+        # with:
+        #   user: __token__
+        #   password: ${{ secrets.PYPI_API_TOKEN }}
+
+  publish-to-testpypi:
+    name: Publish to TestPyPI
+    needs: build
+    if: github.event_name == 'workflow_dispatch' && inputs.target == 'testpypi'
+    runs-on: ubuntu-latest
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/p/qq-botpy-v2
+    permissions:
+      id-token: write
+    steps:
+      - name: Download distribution packages
+        uses: actions/download-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
+
+      - name: Publish to TestPyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/

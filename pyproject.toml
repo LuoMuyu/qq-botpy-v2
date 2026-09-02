@@ -3,21 +3,49 @@ requires = ["setuptools>=61", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "qq-botpy"
+name = "qq-botpy-v2"
 version = "1.0.0"
 description = "QQ 机器人 Python SDK，基于官方 API v2 最新文档适配，接口兼容原版 botpy"
 readme = "README.md"
 requires-python = ">=3.8"
 license = { text = "MIT" }
+authors = [
+    # 发布前可按需补充邮箱: { name = "Luomuyu", email = "xxx@example.com" }
+    { name = "Luomuyu" },
+]
+keywords = ["qq", "bot", "qqbot", "botpy", "qq-guild", "websocket", "webhook"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Communications :: Chat",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
 dependencies = [
     "aiohttp>=3.7.4,<4",
     "PyYAML",
     "APScheduler",
 ]
 
+# 发布前请改为自己的仓库地址（会展示在 PyPI 项目页侧边栏）
+[project.urls]
+Homepage = "https://github.com/tencent-connect/botpy"
+Documentation = "https://bot.q.qq.com/wiki/develop/api-v2/"
+
 [project.optional-dependencies]
 webhook = ["PyNaCl>=1.4.0"]
 test = ["pytest", "pytest-asyncio", "PyNaCl>=1.4.0"]
+
+[tool.setuptools.packages.find]
+# 只打包 botpy 包，排除 reference/（上游克隆）、tests、examples 等
+include = ["botpy*"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
