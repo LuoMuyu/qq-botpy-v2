@@ -86,7 +86,11 @@ class ConnectionSession:
                 tasks.append(asyncio.ensure_future(self._runner(session_list.pop(i), time_interval), loop=self.loop))
             index += self._max_async
 
-        await asyncio.wait(tasks)
+        done, _ = await asyncio.wait(tasks)
+        # 主动取回任务异常，避免连接错误被静默吞掉
+        for t in done:
+            if not t.cancelled() and t.exception() is not None:
+                _log.error("[botpy] 会话任务异常: %r" % t.exception())
 
     async def _runner(self, session, time_interval):
         await self._connect(session)

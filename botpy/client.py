@@ -265,11 +265,18 @@ class Client:
                 elif coroutine:
                     await coroutine
                 else:
-                    await self.close()
-                    _log.info("[botpy] 服务意外停止!")
+                    # 会话列表暂空（如等待重连间隔），稍后重查而非直接停止
+                    await asyncio.sleep(session_interval)
             except KeyboardInterrupt:
                 _log.info("[botpy] 服务强行停止!")
                 # cancel all tasks lingering
+                break
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                # 重连循环中的任何异常都不应使客户端静默停止
+                _log.error(f"[botpy] 会话循环异常: {e!r}，{session_interval} 秒后重试...")
+                await asyncio.sleep(session_interval)
 
     async def bot_connect(self, session):
         """
@@ -285,7 +292,10 @@ class Client:
         client = BotWebSocket(session, self._connection)
         try:
             await client.ws_connect()
-        except (Exception, KeyboardInterrupt, SystemExit) as e:
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except BaseException as e:
+            # 包含 asyncio.CancelledError 等	BaseException 子类，确保会话回队触发重连
             await client.on_error(e)
 
     def ws_dispatch(self, event: str, *args: Any, **kwargs: Any) -> None:
