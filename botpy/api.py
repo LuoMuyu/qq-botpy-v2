@@ -1600,6 +1600,25 @@ class BotAPI:
         route = Route("POST", "/v2/groups/{group_openid}/upload_part_finish", group_openid=group_openid)
         return await self._http.request(route, json=payload)
 
+    async def post_group_upload_finish(
+            self,group_openid:str,upload_id:str,file_type:int
+    ) -> Dict[str, Any]:
+        """
+        群聊富媒体分片上传第三步：完成合并
+        POST /v2/groups/{group_openid}/files
+
+        Args:
+          group_openid (str): 群 OpenID。
+          upload_id (str): 上传任务 ID，来自预上传响应。
+          file_type (int): 上传文件类型
+        """
+        payload = {
+            "upload_id": upload_id,
+            "file_type": file_type,
+        }
+        route = Route("POST", "/v2/groups/{group_openid}/files", group_openid=group_openid)
+        return await self._http.request(route, json=payload)
+
     # ============== 单聊（C2C）消息接口 ==============
     async def post_c2c_message(
         self,
@@ -1815,6 +1834,22 @@ class BotAPI:
             "md5": md5,
         }
         route = Route("POST", "/v2/users/{openid}/upload_part_finish", openid=openid)
+        return await self._http.request(route, json=payload)
+
+    async def post_c2c_upload_finish(
+            self,openid:str,upload_id:str,file_type:int
+    ) -> Dict[str, Any]:
+        """
+        单聊富媒体分片上传第三步：完成合并
+        （POST /v2/users/{openid}/）。
+
+        参数含义同 :meth`post_group_upload_finish`
+        """
+        payload = {
+            "upload_id": upload_id,
+            "file_type": file_type,
+        }
+        route = Route("POST", "/v2/users/{openid}/files", openid=openid)
         return await self._http.request(route, json=payload)
 
     # ============== 群聊管理接口（2026.08 新增） ==============
